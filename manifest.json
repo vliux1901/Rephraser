@@ -21,5 +21,10 @@
   "options_ui": {
     "page": "options.html",
     "open_in_tab": false
+  },
+  "icons": {
+    "16": "rephraser_16.png",
+    "48": "rephraser_48.png",
+    "128": "rephraser_128.png"
   }
 }
