@@ -7,9 +7,10 @@ if (!window.hasRun) {
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "open_modal") {
-      createAndShowModal(request.selection);
+      // CHANGED: Grab text here directly to preserve newlines
+      const selectedText = window.getSelection().toString();
+      createAndShowModal(selectedText);
     }
-    // Return true not needed here as we don't send async response back immediately
   });
 
   function createAndShowModal(selectedText) {
@@ -23,7 +24,7 @@ if (!window.hasRun) {
     style.textContent = `
       .overlay {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0,0,0,0.5); z-index: 2147483647; /* Max Z-Index */
+        background: rgba(0,0,0,0.5); z-index: 2147483647;
         display: flex; justify-content: center; align-items: center;
         font-family: sans-serif, Arial; text-align: left;
       }
@@ -32,6 +33,8 @@ if (!window.hasRun) {
         width: 400px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         display: flex; flex-direction: column; gap: 12px;
         color: #333;
+        max-height: 90vh;
+        overflow-y: auto;
       }
       h2 { margin: 0 0 5px 0; font-size: 18px; color: #222; }
       label { font-size: 12px; font-weight: bold; color: #555; display: block; margin-bottom: 4px; }
@@ -46,11 +49,24 @@ if (!window.hasRun) {
       button:hover { background: #0056b3; }
       button.close { background: transparent; color: #666; border: 1px solid #ccc; margin-top: 5px;}
       button.close:hover { background: #eee; }
+      
       .result-area {
         background: #f8f9fa; padding: 10px; border: 1px solid #e9ecef;
-        border-radius: 4px; min-height: 60px; white-space: pre-wrap; font-size: 14px;
+        border-radius: 4px; min-height: 60px; 
+        white-space: pre-wrap;
+        font-size: 14px;
         color: #333;
       }
+      
+      .original-area {
+        font-size: 12px; color: #666; font-style: italic;
+        background: #fff; border: 1px dashed #ccc; padding: 8px;
+        border-radius: 4px; max-height: 80px; overflow-y: auto;
+        
+        /* This ensures the newlines captured by JS are actually displayed */
+        white-space: pre-wrap; 
+      }
+
       .error { color: #dc3545; font-size: 12px; }
     `;
     shadowRoot.appendChild(style);
@@ -84,12 +100,19 @@ if (!window.hasRun) {
           <div id="result" class="result-area"></div>
         </div>
 
+        <div>
+           <label>Original Selection</label>
+           <div id="original-text" class="original-area"></div>
+        </div>
+
         <button id="btn-close" class="close">Close</button>
       </div>
     `;
     shadowRoot.appendChild(container);
 
-    // Event Listeners
+    const originalTextDiv = shadowRoot.getElementById('original-text');
+    originalTextDiv.innerText = selectedText;
+
     shadowRoot.getElementById('btn-close').onclick = () => hostElement.remove();
     container.onclick = (e) => { if(e.target === container) hostElement.remove(); };
     

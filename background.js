@@ -7,19 +7,19 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-// 2. Handle Context Menu Click (Robust Injection)
+// 2. Handle Context Menu Click
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === "rephrase-text") {
     
-    // Check if we can inject scripts (avoids chrome:// urls)
+    // Ignore chrome:// pages
     if (tab.url.startsWith("chrome://") || tab.url.startsWith("edge://")) return;
 
     const message = {
-      action: "open_modal",
-      selection: info.selectionText
+      action: "open_modal"
+      // Note: We REMOVED 'selection: info.selectionText' here.
+      // We will let content.js grab the text to preserve newlines.
     };
 
-    // Try sending message
     chrome.tabs.sendMessage(tab.id, message, (response) => {
       // If error (content script not ready), inject it manually
       if (chrome.runtime.lastError) {
@@ -27,7 +27,6 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
           target: { tabId: tab.id },
           files: ["content.js"]
         }, () => {
-            // Retry sending message after injection
             if (!chrome.runtime.lastError) {
                 chrome.tabs.sendMessage(tab.id, message);
             }
@@ -37,7 +36,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   }
 });
 
-// 3. Handle API Requests (Same as before)
+// 3. Handle API Requests
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "call_openai") {
     chrome.storage.sync.get(['openaiKey'], async (result) => {
@@ -57,7 +56,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             model: "gpt-3.5-turbo",
             messages: [
               { role: "system", content: "You are a helpful writing assistant." },
-              { role: "user", content: `Rephrase the text with the '${request.tone}' tone, which is going to be viewed by the recipient '${request.recipient}'.\nThe text: "${request.text}"` }
+              { role: "user", content: `Rephrase this text.\nRecipient: ${request.recipient}\nTone: ${request.tone}\nOriginal: "${request.text}"` }
             ]
           })
         });
