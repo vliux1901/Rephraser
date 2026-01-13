@@ -56,7 +56,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             model: "gpt-3.5-turbo",
             messages: [
               { role: "system", content: "You are a helpful writing assistant." },
-              { role: "user", content: `Rephrase this text.\nRecipient: ${request.recipient}\nTone: ${request.tone}\nOriginal: "${request.text}"` }
+              { role: "user", content: `Rephrase the text between the '[[[' and ']]]'.\nIts recipient is ${request.recipient}, tone should be ${request.tone}.\n[[[${request.text}]]]` }
             ]
           })
         });
