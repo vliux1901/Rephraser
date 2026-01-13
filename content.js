@@ -7,7 +7,6 @@ if (!window.hasRun) {
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "open_modal") {
-      // Capture text here to preserve line breaks
       const selectedText = window.getSelection().toString();
       createAndShowModal(selectedText);
     }
@@ -30,12 +29,21 @@ if (!window.hasRun) {
       }
       .modal {
         background: white; padding: 20px; border-radius: 8px;
-        /* WIDER MODAL FOR 2 COLUMNS */
-        width: 600px; 
+        
+        /* DIMENSIONS: 50% Width / 50% Height */
+        width: 50vw;       
+        height: 50vh;      
+        
+        /* Safety Limits so it doesn't get too small on mobile/laptops */
+        min-width: 600px;
+        min-height: 400px; 
+        max-width: 95vw;
+        max-height: 95vh;
+        
         box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         display: flex; flex-direction: column; gap: 12px;
         color: #333;
-        max-height: 90vh;
+        box-sizing: border-box;
       }
       h2 { margin: 0 0 5px 0; font-size: 18px; color: #222; }
       label { font-size: 12px; font-weight: bold; color: #555; display: block; margin-bottom: 4px; }
@@ -51,26 +59,35 @@ if (!window.hasRun) {
       button.close { background: transparent; color: #666; border: 1px solid #ccc; margin-top: 5px;}
       button.close:hover { background: #eee; }
       
-      /* NEW GRID SYSTEM */
+      /* FLEX LAYOUT FOR CONTENT */
       .grid-row {
         display: flex;
         gap: 15px;
         margin-top: 5px;
+        
+        /* This forces the row to take up all remaining vertical space */
+        flex: 1; 
+        min-height: 0; /* Crucial for nested scrolling */
       }
+      
       .col {
-        flex: 1; /* Each column takes 50% width */
+        flex: 1; 
         display: flex;
         flex-direction: column;
-        min-width: 0; /* Prevents overflow issues */
+        min-width: 0;
       }
 
-      /* UNIFIED TEXT BOX STYLES */
+      /* TEXT BOXES */
       .text-box {
         padding: 10px; 
         border-radius: 4px; 
-        height: 200px; /* Fixed height for scrolling */
+        
+        /* Replaces fixed height with dynamic flex height */
+        flex: 1; 
+        height: 100%; 
+        
         overflow-y: auto;
-        white-space: pre-wrap; /* Preserves line breaks */
+        white-space: pre-wrap; 
         font-size: 13px;
         line-height: 1.4;
         box-sizing: border-box;
@@ -121,13 +138,11 @@ if (!window.hasRun) {
         
         <!-- Side-by-Side Comparison -->
         <div class="grid-row">
-            <!-- Left Column: Original -->
             <div class="col">
                 <label>Original</label>
                 <div id="original-text" class="text-box original"></div>
             </div>
 
-            <!-- Right Column: Result -->
             <div class="col">
                 <label>Rephrased</label>
                 <div id="result" class="text-box result"></div>
@@ -139,11 +154,9 @@ if (!window.hasRun) {
     `;
     shadowRoot.appendChild(container);
 
-    // 1. Fill Original Text
     const originalTextDiv = shadowRoot.getElementById('original-text');
     originalTextDiv.innerText = selectedText;
 
-    // 2. Event Listeners
     shadowRoot.getElementById('btn-close').onclick = () => hostElement.remove();
     container.onclick = (e) => { if(e.target === container) hostElement.remove(); };
     
