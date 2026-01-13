@@ -30,82 +30,77 @@ if (!window.hasRun) {
       .modal {
         background: white; padding: 20px; border-radius: 8px;
         
-        /* DIMENSIONS: 50% Width / 50% Height */
+        /* Dimensions */
         width: 50vw;       
         height: 50vh;      
-        
-        /* Safety Limits so it doesn't get too small on mobile/laptops */
         min-width: 600px;
         min-height: 400px; 
         max-width: 95vw;
         max-height: 95vh;
         
         box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        display: flex; flex-direction: column; gap: 12px;
+        display: flex; flex-direction: column; gap: 10px;
         color: #333;
         box-sizing: border-box;
       }
-      h2 { margin: 0 0 5px 0; font-size: 18px; color: #222; }
-      label { font-size: 12px; font-weight: bold; color: #555; display: block; margin-bottom: 4px; }
+      
+      /* HEADER ROW (Title + X) */
+      .header-row {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 5px;
+      }
+      h2 { margin: 0; font-size: 18px; color: #222; }
+      
+      /* Close "X" Button Styling */
+      .close-icon {
+        background: transparent; border: none; font-size: 24px; 
+        color: #999; cursor: pointer; line-height: 1; padding: 0;
+      }
+      .close-icon:hover { color: #333; }
+
+      /* INPUT ROW (Recipient + Tone + Button) */
+      .input-row {
+        display: flex; gap: 15px; 
+        align-items: flex-end; /* Aligns inputs and button on the bottom baseline */
+      }
+      .input-group { display: flex; flex-direction: column; }
+      
+      /* Flex weights for inputs */
+      .input-recipient { flex: 3; }
+      .input-tone { flex: 2; }
+
+      label { font-size: 12px; font-weight: bold; color: #555; margin-bottom: 4px; }
+      
       input, select {
         width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;
-        box-sizing: border-box; font-size: 14px;
+        box-sizing: border-box; font-size: 14px; height: 36px;
       }
-      button {
-        background: #007bff; color: white; border: none; padding: 10px;
+
+      /* Primary Button Styling */
+      button#btn-rephrase {
+        background: #007bff; color: white; border: none; padding: 0 20px;
         border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold;
+        height: 36px; /* Match input height */
+        white-space: nowrap;
       }
-      button:hover { background: #0056b3; }
-      button.close { background: transparent; color: #666; border: 1px solid #ccc; margin-top: 5px;}
-      button.close:hover { background: #eee; }
-      
-      /* FLEX LAYOUT FOR CONTENT */
+      button#btn-rephrase:hover { background: #0056b3; }
+
+      /* CONTENT AREA (Side-by-Side) */
       .grid-row {
-        display: flex;
-        gap: 15px;
-        margin-top: 5px;
-        
-        /* This forces the row to take up all remaining vertical space */
-        flex: 1; 
-        min-height: 0; /* Crucial for nested scrolling */
+        display: flex; gap: 15px; margin-top: 5px;
+        flex: 1; min-height: 0;
       }
-      
       .col {
-        flex: 1; 
-        display: flex;
-        flex-direction: column;
-        min-width: 0;
+        flex: 1; display: flex; flex-direction: column; min-width: 0;
       }
-
-      /* TEXT BOXES */
       .text-box {
-        padding: 10px; 
-        border-radius: 4px; 
-        
-        /* Replaces fixed height with dynamic flex height */
-        flex: 1; 
-        height: 100%; 
-        
-        overflow-y: auto;
-        white-space: pre-wrap; 
-        font-size: 13px;
-        line-height: 1.4;
-        box-sizing: border-box;
-        width: 100%;
+        padding: 10px; border-radius: 4px; 
+        flex: 1; height: 100%; 
+        overflow-y: auto; white-space: pre-wrap; 
+        font-size: 13px; line-height: 1.4; box-sizing: border-box; width: 100%;
       }
-
-      .original {
-        background: #fff;
-        border: 1px dashed #ccc;
-        color: #555;
-      }
-      
-      .result {
-        background: #f8f9fa;
-        border: 1px solid #e9ecef;
-        color: #333;
-      }
-      
+      .original { background: #fff; border: 1px dashed #ccc; color: #555; }
+      .result { background: #f8f9fa; border: 1px solid #e9ecef; color: #333; }
       .error { color: #dc3545; font-size: 12px; }
     `;
     shadowRoot.appendChild(style);
@@ -114,15 +109,21 @@ if (!window.hasRun) {
     container.className = 'overlay';
     container.innerHTML = `
       <div class="modal">
-        <h2>Rephrase Text</h2>
         
-        <!-- Input Rows -->
-        <div style="display: flex; gap: 15px;">
-          <div style="flex: 2;">
+        <!-- Header Row: Title & X Button -->
+        <div class="header-row">
+           <h2>Rephrase Text</h2>
+           <button id="btn-close-x" class="close-icon">&times;</button>
+        </div>
+        
+        <!-- Input Row: Recipient, Tone, and Rephrase Button -->
+        <div class="input-row">
+          <div class="input-group input-recipient">
             <label>Recipient</label>
             <input type="text" id="recipient" placeholder="e.g. Boss, Client">
           </div>
-          <div style="flex: 1;">
+          
+          <div class="input-group input-tone">
             <label>Tone</label>
             <select id="tone">
               <option value="Professional">Professional</option>
@@ -132,11 +133,11 @@ if (!window.hasRun) {
               <option value="Funny">Funny</option>
             </select>
           </div>
+
+          <button id="btn-rephrase">Rephrase</button>
         </div>
 
-        <button id="btn-rephrase">Rephrase</button>
-        
-        <!-- Side-by-Side Comparison -->
+        <!-- Content Row -->
         <div class="grid-row">
             <div class="col">
                 <label>Original</label>
@@ -148,8 +149,6 @@ if (!window.hasRun) {
                 <div id="result" class="text-box result"></div>
             </div>
         </div>
-
-        <button id="btn-close" class="close">Close</button>
       </div>
     `;
     shadowRoot.appendChild(container);
@@ -157,7 +156,8 @@ if (!window.hasRun) {
     const originalTextDiv = shadowRoot.getElementById('original-text');
     originalTextDiv.innerText = selectedText;
 
-    shadowRoot.getElementById('btn-close').onclick = () => hostElement.remove();
+    // Use the new X button ID
+    shadowRoot.getElementById('btn-close-x').onclick = () => hostElement.remove();
     container.onclick = (e) => { if(e.target === container) hostElement.remove(); };
     
     const resultDiv = shadowRoot.getElementById('result');
