@@ -7,7 +7,7 @@ if (!window.hasRun) {
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "open_modal") {
-      // CHANGED: Grab text here directly to preserve newlines
+      // Capture text here to preserve line breaks
       const selectedText = window.getSelection().toString();
       createAndShowModal(selectedText);
     }
@@ -30,11 +30,12 @@ if (!window.hasRun) {
       }
       .modal {
         background: white; padding: 20px; border-radius: 8px;
-        width: 400px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        /* WIDER MODAL FOR 2 COLUMNS */
+        width: 600px; 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         display: flex; flex-direction: column; gap: 12px;
         color: #333;
         max-height: 90vh;
-        overflow-y: auto;
       }
       h2 { margin: 0 0 5px 0; font-size: 18px; color: #222; }
       label { font-size: 12px; font-weight: bold; color: #555; display: block; margin-bottom: 4px; }
@@ -50,23 +51,44 @@ if (!window.hasRun) {
       button.close { background: transparent; color: #666; border: 1px solid #ccc; margin-top: 5px;}
       button.close:hover { background: #eee; }
       
-      .result-area {
-        background: #f8f9fa; padding: 10px; border: 1px solid #e9ecef;
-        border-radius: 4px; min-height: 60px; 
-        white-space: pre-wrap;
-        font-size: 14px;
+      /* NEW GRID SYSTEM */
+      .grid-row {
+        display: flex;
+        gap: 15px;
+        margin-top: 5px;
+      }
+      .col {
+        flex: 1; /* Each column takes 50% width */
+        display: flex;
+        flex-direction: column;
+        min-width: 0; /* Prevents overflow issues */
+      }
+
+      /* UNIFIED TEXT BOX STYLES */
+      .text-box {
+        padding: 10px; 
+        border-radius: 4px; 
+        height: 200px; /* Fixed height for scrolling */
+        overflow-y: auto;
+        white-space: pre-wrap; /* Preserves line breaks */
+        font-size: 13px;
+        line-height: 1.4;
+        box-sizing: border-box;
+        width: 100%;
+      }
+
+      .original {
+        background: #fff;
+        border: 1px dashed #ccc;
+        color: #555;
+      }
+      
+      .result {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
         color: #333;
       }
       
-      .original-area {
-        font-size: 12px; color: #666; font-style: italic;
-        background: #fff; border: 1px dashed #ccc; padding: 8px;
-        border-radius: 4px; max-height: 80px; overflow-y: auto;
-        
-        /* This ensures the newlines captured by JS are actually displayed */
-        white-space: pre-wrap; 
-      }
-
       .error { color: #dc3545; font-size: 12px; }
     `;
     shadowRoot.appendChild(style);
@@ -77,32 +99,39 @@ if (!window.hasRun) {
       <div class="modal">
         <h2>Rephrase Text</h2>
         
-        <div>
-          <label>Recipient</label>
-          <input type="text" id="recipient" placeholder="e.g. Boss, Client, Friend">
-        </div>
-
-        <div>
-          <label>Tone</label>
-          <select id="tone">
-            <option value="Professional">Professional</option>
-            <option value="Casual">Casual</option>
-            <option value="Friendly">Friendly</option>
-            <option value="Diplomatic">Diplomatic</option>
-            <option value="Funny">Funny</option>
-          </select>
+        <!-- Input Rows -->
+        <div style="display: flex; gap: 15px;">
+          <div style="flex: 2;">
+            <label>Recipient</label>
+            <input type="text" id="recipient" placeholder="e.g. Boss, Client">
+          </div>
+          <div style="flex: 1;">
+            <label>Tone</label>
+            <select id="tone">
+              <option value="Professional">Professional</option>
+              <option value="Casual">Casual</option>
+              <option value="Friendly">Friendly</option>
+              <option value="Diplomatic">Diplomatic</option>
+              <option value="Funny">Funny</option>
+            </select>
+          </div>
         </div>
 
         <button id="btn-rephrase">Rephrase</button>
         
-        <div>
-          <label>Result</label>
-          <div id="result" class="result-area"></div>
-        </div>
+        <!-- Side-by-Side Comparison -->
+        <div class="grid-row">
+            <!-- Left Column: Original -->
+            <div class="col">
+                <label>Original</label>
+                <div id="original-text" class="text-box original"></div>
+            </div>
 
-        <div>
-           <label>Original Selection</label>
-           <div id="original-text" class="original-area"></div>
+            <!-- Right Column: Result -->
+            <div class="col">
+                <label>Rephrased</label>
+                <div id="result" class="text-box result"></div>
+            </div>
         </div>
 
         <button id="btn-close" class="close">Close</button>
@@ -110,9 +139,11 @@ if (!window.hasRun) {
     `;
     shadowRoot.appendChild(container);
 
+    // 1. Fill Original Text
     const originalTextDiv = shadowRoot.getElementById('original-text');
     originalTextDiv.innerText = selectedText;
 
+    // 2. Event Listeners
     shadowRoot.getElementById('btn-close').onclick = () => hostElement.remove();
     container.onclick = (e) => { if(e.target === container) hostElement.remove(); };
     
