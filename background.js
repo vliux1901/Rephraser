@@ -1,4 +1,23 @@
-// 1. Create Context Menu
+// --- Encryption Helper Functions (Same as before) ---
+const SECRET_SALT = "rephraser-extension-secret-salt-9876"; 
+
+function decryptData(encoded) {
+  try {
+    const text = atob(encoded);
+    const textChars = text.split('');
+    const saltChars = SECRET_SALT.split('');
+    let decrypted = "";
+    for(let i = 0; i < textChars.length; i++) {
+      const charCode = textChars[i].charCodeAt(0) ^ saltChars[i % saltChars.length].charCodeAt(0);
+      decrypted += String.fromCharCode(charCode);
+    }
+    return decrypted;
+  } catch (e) {
+    return encoded;
+  }
+}
+// ---------------------------------------------------
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "rephrase-text",
@@ -7,44 +26,43 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-// 2. Handle Context Menu Click
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === "rephrase-text") {
     
-    // Ignore chrome:// pages
+    // Security check: cannot inject into chrome:// settings pages
     if (tab.url.startsWith("chrome://") || tab.url.startsWith("edge://")) return;
 
-    const message = {
-      action: "open_modal"
-      // Note: We REMOVED 'selection: info.selectionText' here.
-      // We will let content.js grab the text to preserve newlines.
-    };
-
-    chrome.tabs.sendMessage(tab.id, message, (response) => {
-      // If error (content script not ready), inject it manually
+    // 1. Always inject the script first.
+    // 'activeTab' gives us permission to do this upon user click.
+    chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ["content.js"]
+    }, () => {
+      // 2. Once injected, send the message to open the modal
       if (chrome.runtime.lastError) {
-        chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          files: ["content.js"]
-        }, () => {
-            if (!chrome.runtime.lastError) {
-                chrome.tabs.sendMessage(tab.id, message);
-            }
-        });
+        console.error("Script injection failed: " + chrome.runtime.lastError.message);
+      } else {
+        chrome.tabs.sendMessage(tab.id, { action: "open_modal" });
       }
     });
   }
 });
 
-// 3. Handle API Requests
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "call_openai") {
+    
     chrome.storage.sync.get(['openaiKey'], async (result) => {
-      const apiKey = result.openaiKey;
+      let apiKey = result.openaiKey;
+
       if (!apiKey) {
         sendResponse({ error: "Please save your OpenAI API Key in settings." });
         return;
       }
+
+      if (!apiKey.startsWith("sk-")) {
+          apiKey = decryptData(apiKey);
+      }
+
       try {
         const response = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
@@ -56,17 +74,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             model: "gpt-3.5-turbo",
             messages: [
               { role: "system", content: "You are a helpful writing assistant." },
-              { role: "user", content: `Rephrase the text between the '[[[' and ']]]'.\nIts recipient is ${request.recipient}, tone should be ${request.tone}.\n[[[${request.text}]]]` }
+              { role: "user", content: `Rephrase this text.\nRecipient: ${request.recipient}\nTone: ${request.tone}\nOriginal: "${request.text}"` }
             ]
           })
         });
+
         const data = await response.json();
-        if (data.error) sendResponse({ error: data.error.message });
-        else sendResponse({ result: data.choices[0].message.content });
+        
+        if (data.error) {
+            sendResponse({ error: data.error.message });
+        } else {
+            sendResponse({ result: data.choices[0].message.content });
+        }
+
       } catch (error) {
-        sendResponse({ error: "Network error." });
+        sendResponse({ error: "Network error or invalid API key." });
       }
     });
+
     return true; 
   }
 });
