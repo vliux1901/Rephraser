@@ -65,9 +65,13 @@ if (!window.hasRun) {
 
       label { font-size: 12px; font-weight: bold; color: #555; margin-bottom: 4px; }
       
-      input, select {
+      input, select, textarea {
         width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;
         box-sizing: border-box; font-size: 14px; height: 36px;
+      }
+      textarea {
+        height: 70px;
+        resize: vertical;
       }
 
       /* Primary Button Styling */
@@ -175,6 +179,11 @@ if (!window.hasRun) {
           <button id="btn-rephrase">Rephrase</button>
         </div>
 
+        <div class="input-group">
+          <label>Context</label>
+          <textarea id="context" placeholder="e.g. Purpose of the text: 'Rephrase for college application'"></textarea>
+        </div>
+
         <!-- Content Row -->
         <div class="grid-row">
             <div class="col">
@@ -204,6 +213,7 @@ if (!window.hasRun) {
       const recipient = shadowRoot.getElementById('recipient').value;
       const tone = shadowRoot.getElementById('tone').value;
       const model = shadowRoot.getElementById('model').value;
+      const context = shadowRoot.getElementById('context').value;
       
       resultDiv.innerText = "Generating...";
       
@@ -212,7 +222,8 @@ if (!window.hasRun) {
         text: selectedText,
         recipient: recipient,
         tone: tone,
-        model: model
+        model: model,
+        context: context
       }, (response) => {
         if (!response) {
             resultDiv.innerHTML = `<span class="error">Error: No response. Check API Key.</span>`;
