@@ -9,6 +9,7 @@
     button { padding: 8px 15px; background: #28a745; color: white; border: none; cursor: pointer; }
     button:hover { background: #218838; }
     #status { margin-top: 10px; color: green; display: none; }
+    #notice { margin-top: 10px; color: #0c5460; background: #d1ecf1; border: 1px solid #bee5eb; padding: 8px; display: none; }
   </style>
 </head>
 <body>
@@ -16,6 +17,7 @@
   <label>OpenAI API Key:</label>
   <input type="password" id="apiKey" placeholder="sk-...">
   <button id="save">Save Key</button>
+  <div id="notice">Please add your OpenAI API key to use rephrase.</div>
   <div id="status">Saved!</div>
   <script src="options.js"></script>
 </body>

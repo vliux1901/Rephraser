@@ -28,22 +28,25 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === "rephrase-text") {
-    
     // Security check: cannot inject into chrome:// settings pages
     if (tab.url.startsWith("chrome://") || tab.url.startsWith("edge://")) return;
 
-    // 1. Always inject the script first.
-    // 'activeTab' gives us permission to do this upon user click.
-    chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: ["content.js"]
-    }, () => {
-      // 2. Once injected, send the message to open the modal
-      if (chrome.runtime.lastError) {
-        console.error("Script injection failed: " + chrome.runtime.lastError.message);
-      } else {
-        chrome.tabs.sendMessage(tab.id, { action: "open_modal" });
-      }
+    chrome.storage.sync.get(['openaiKey'], (result) => {
+      const action = result.openaiKey ? "open_modal" : "open_settings";
+
+      // 1. Always inject the script first.
+      // 'activeTab' gives us permission to do this upon user click.
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ["content.js"]
+      }, () => {
+        // 2. Once injected, send the message to open the modal
+        if (chrome.runtime.lastError) {
+          console.error("Script injection failed: " + chrome.runtime.lastError.message);
+        } else {
+          chrome.tabs.sendMessage(tab.id, { action });
+        }
+      });
     });
   }
 });

@@ -4,23 +4,7 @@ if (!window.hasRun) {
 
   let shadowRoot = null;
   let hostElement = null;
-
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "open_modal") {
-      const selectedText = window.getSelection().toString();
-      createAndShowModal(selectedText);
-    }
-  });
-
-  function createAndShowModal(selectedText) {
-    if (hostElement) hostElement.remove();
-
-    hostElement = document.createElement('div');
-    document.body.appendChild(hostElement);
-    shadowRoot = hostElement.attachShadow({ mode: 'open' });
-
-    const style = document.createElement('style');
-    style.textContent = `
+  const baseStyles = `
       .overlay {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background: rgba(0,0,0,0.5); z-index: 2147483647;
@@ -42,6 +26,12 @@ if (!window.hasRun) {
         display: flex; flex-direction: column; gap: 10px;
         color: #333;
         box-sizing: border-box;
+      }
+      .modal.settings {
+        width: 420px;
+        min-width: 320px;
+        height: auto;
+        min-height: auto;
       }
       
       /* HEADER ROW (Title + X) */
@@ -77,13 +67,19 @@ if (!window.hasRun) {
       }
 
       /* Primary Button Styling */
-      button#btn-rephrase {
+      button#btn-rephrase, .btn-primary {
         background: #007bff; color: white; border: none; padding: 0 20px;
         border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold;
         height: 36px; /* Match input height */
         white-space: nowrap;
       }
-      button#btn-rephrase:hover { background: #0056b3; }
+      button#btn-rephrase:hover, .btn-primary:hover { background: #0056b3; }
+      .btn-secondary {
+        background: #6c757d; color: white; border: none; padding: 0 16px;
+        border-radius: 4px; cursor: pointer; font-size: 14px;
+        height: 36px; white-space: nowrap;
+      }
+      .btn-secondary:hover { background: #5a6268; }
 
       /* CONTENT AREA (Side-by-Side) */
       .grid-row {
@@ -102,7 +98,29 @@ if (!window.hasRun) {
       .original { background: #fff; border: 1px dashed #ccc; color: #555; }
       .result { background: #f8f9fa; border: 1px solid #e9ecef; color: #333; }
       .error { color: #dc3545; font-size: 12px; }
-    `;
+      .notice { color: #0c5460; background: #d1ecf1; border: 1px solid #bee5eb; padding: 8px; border-radius: 4px; }
+      .settings-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 5px; }
+      .settings-status { color: #28a745; font-size: 12px; }
+  `;
+
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "open_modal") {
+      const selectedText = window.getSelection().toString();
+      createAndShowModal(selectedText);
+    } else if (request.action === "open_settings") {
+      createAndShowSettingsModal();
+    }
+  });
+
+  function createAndShowModal(selectedText) {
+    if (hostElement) hostElement.remove();
+
+    hostElement = document.createElement('div');
+    document.body.appendChild(hostElement);
+    shadowRoot = hostElement.attachShadow({ mode: 'open' });
+
+    const style = document.createElement('style');
+    style.textContent = baseStyles;
     shadowRoot.appendChild(style);
 
     const container = document.createElement('div');
@@ -183,5 +201,75 @@ if (!window.hasRun) {
         }
       });
     };
+  }
+
+  function createAndShowSettingsModal() {
+    if (hostElement) hostElement.remove();
+
+    hostElement = document.createElement('div');
+    document.body.appendChild(hostElement);
+    shadowRoot = hostElement.attachShadow({ mode: 'open' });
+
+    const style = document.createElement('style');
+    style.textContent = baseStyles;
+    shadowRoot.appendChild(style);
+
+    const container = document.createElement('div');
+    container.className = 'overlay';
+    container.innerHTML = `
+      <div class="modal settings">
+        <div class="header-row">
+           <h2>Settings</h2>
+           <button id="btn-close-settings" class="close-icon">&times;</button>
+        </div>
+        <div class="notice">Please add your OpenAI API key to use rephrase.</div>
+        <div class="input-group">
+          <label>OpenAI API Key</label>
+          <input type="password" id="api-key-input" placeholder="sk-...">
+        </div>
+        <div id="settings-error" class="error" style="display:none;"></div>
+        <div id="settings-status" class="settings-status" style="display:none;">Saved!</div>
+        <div class="settings-actions">
+          <button id="btn-cancel-settings" class="btn-secondary">Cancel</button>
+          <button id="btn-save-settings" class="btn-primary">Save Key</button>
+        </div>
+      </div>
+    `;
+    shadowRoot.appendChild(container);
+
+    const apiKeyInput = shadowRoot.getElementById('api-key-input');
+    const errorDiv = shadowRoot.getElementById('settings-error');
+    const statusDiv = shadowRoot.getElementById('settings-status');
+
+    apiKeyInput.focus();
+
+    const closeSettings = () => hostElement.remove();
+    shadowRoot.getElementById('btn-close-settings').onclick = closeSettings;
+    shadowRoot.getElementById('btn-cancel-settings').onclick = closeSettings;
+    container.onclick = (e) => { if (e.target === container) closeSettings(); };
+
+    const saveKey = () => {
+      const apiKey = apiKeyInput.value.trim();
+      errorDiv.style.display = 'none';
+      statusDiv.style.display = 'none';
+      if (!apiKey) {
+        errorDiv.textContent = "Please enter an API key.";
+        errorDiv.style.display = 'block';
+        return;
+      }
+      chrome.storage.sync.set({ openaiKey: apiKey }, () => {
+        statusDiv.style.display = 'block';
+        setTimeout(() => {
+          closeSettings();
+        }, 800);
+      });
+    };
+
+    shadowRoot.getElementById('btn-save-settings').onclick = saveKey;
+    apiKeyInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        saveKey();
+      }
+    });
   }
 }
