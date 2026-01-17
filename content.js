@@ -239,7 +239,7 @@ if (!window.hasRun) {
            <h2>Settings</h2>
            <button id="btn-close-settings" class="close-icon">&times;</button>
         </div>
-        <div class="notice">Please add your OpenAI API key to use rephrase.</div>
+        <div class="notice">Enter your OpenAI API key to enable rephrasing. The key will only be stored locally in this browser and will not be shared with anyone.</div>
         <div class="input-group">
           <label>OpenAI API Key</label>
           <input type="password" id="api-key-input" placeholder="sk-...">
