@@ -4,6 +4,7 @@ if (!window.hasRun) {
 
   let shadowRoot = null;
   let hostElement = null;
+  let lastSelectedText = '';
   const baseStyles = `
       .overlay {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -105,10 +106,11 @@ if (!window.hasRun) {
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "open_modal") {
-      const selectedText = window.getSelection().toString();
-      createAndShowModal(selectedText);
+      lastSelectedText = window.getSelection().toString();
+      createAndShowModal(lastSelectedText);
     } else if (request.action === "open_settings") {
-      createAndShowSettingsModal();
+      lastSelectedText = window.getSelection().toString();
+      createAndShowSettingsModal(lastSelectedText);
     }
   });
 
@@ -220,7 +222,7 @@ if (!window.hasRun) {
     };
   }
 
-  function createAndShowSettingsModal() {
+  function createAndShowSettingsModal(selectedText) {
     if (hostElement) hostElement.remove();
 
     hostElement = document.createElement('div');
@@ -265,6 +267,8 @@ if (!window.hasRun) {
     shadowRoot.getElementById('btn-cancel-settings').onclick = closeSettings;
     container.onclick = (e) => { if (e.target === container) closeSettings(); };
 
+    const preservedSelectedText = selectedText || '';
+
     const saveKey = () => {
       const apiKey = apiKeyInput.value.trim();
       errorDiv.style.display = 'none';
@@ -278,6 +282,7 @@ if (!window.hasRun) {
         statusDiv.style.display = 'block';
         setTimeout(() => {
           closeSettings();
+          createAndShowModal(preservedSelectedText);
         }, 800);
       });
     };
