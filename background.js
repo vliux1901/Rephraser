@@ -77,7 +77,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             model: "gpt-3.5-turbo",
             messages: [
               { role: "system", content: "You are a helpful writing assistant." },
-              { role: "user", content: `Rephrase this text.\nRecipient: ${request.recipient}\nTone: ${request.tone}\nOriginal: "${request.text}"` }
+              { role: "user", content: `Rephrase the text between '[[["' and '"]]]'. Recipient: ${request.recipient}\nTone: ${request.tone}\nReturn only the rephrased text, no labels or extra lines.\n[[["${request.text}"]]]` }
             ]
           })
         });
