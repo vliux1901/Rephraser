@@ -139,7 +139,7 @@ if (!window.hasRun) {
         
         <!-- Header Row: Title & X Button -->
         <div class="header-row">
-           <h2>Rephrase Text</h2>
+           <h2>Rephrase with AI</h2>
            <button id="btn-close-x" class="close-icon">&times;</button>
         </div>
         
