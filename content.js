@@ -6,6 +6,9 @@ if (!window.hasRun) {
   let hostElement = null;
   let lastSelectedText = '';
   const baseStyles = `
+      :host {
+        color-scheme: light;
+      }
       .overlay {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background: rgba(0,0,0,0.5); z-index: 2147483647;
