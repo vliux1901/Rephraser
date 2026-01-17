@@ -74,7 +74,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             "Authorization": `Bearer ${apiKey}`
           },
           body: JSON.stringify({
-            model: "gpt-3.5-turbo",
+            model: request.model || "gpt-5-mini",
             messages: [
               { role: "system", content: "You are a helpful writing assistant." },
               { role: "user", content: `Rephrase the text between '[[["' and '"]]]'. Recipient: ${request.recipient}\nTone: ${request.tone}\nReturn only the rephrased text, no labels or extra lines.\n[[["${request.text}"]]]` }

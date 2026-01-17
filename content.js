@@ -134,7 +134,7 @@ if (!window.hasRun) {
            <button id="btn-close-x" class="close-icon">&times;</button>
         </div>
         
-        <!-- Input Row: Recipient, Tone, and Rephrase Button -->
+        <!-- Input Row: Recipient, Tone, Model, and Rephrase Button -->
         <div class="input-row">
           <div class="input-group input-recipient">
             <label>Recipient</label>
@@ -149,6 +149,21 @@ if (!window.hasRun) {
               <option value="Friendly">Friendly</option>
               <option value="Diplomatic">Diplomatic</option>
               <option value="Funny">Funny</option>
+            </select>
+          </div>
+
+          <div class="input-group input-model">
+            <label>Model</label>
+            <select id="model">
+              <option value="gpt-5-mini" selected>GPT-5-mini — fast + cost-effective</option>
+              <option value="gpt-5">GPT-5 — highest quality</option>
+              <option value="gpt-5-nano">GPT-5-nano — ultra-fast + lowest cost</option>
+              <option value="gpt-4.1">GPT-4.1 — strong reasoning</option>
+              <option value="gpt-4.1-mini">GPT-4.1-mini — balanced price/perf</option>
+              <option value="gpt-4.1-nano">GPT-4.1-nano — lightweight + low cost</option>
+              <option value="gpt-4o">GPT-4o — flagship multimodal</option>
+              <option value="gpt-4o-mini">GPT-4o-mini — small + affordable</option>
+              <option value="gpt-3.5-turbo">GPT-3.5 Turbo — legacy + budget</option>
             </select>
           </div>
 
@@ -183,6 +198,7 @@ if (!window.hasRun) {
     shadowRoot.getElementById('btn-rephrase').onclick = () => {
       const recipient = shadowRoot.getElementById('recipient').value;
       const tone = shadowRoot.getElementById('tone').value;
+      const model = shadowRoot.getElementById('model').value;
       
       resultDiv.innerText = "Generating...";
       
@@ -190,7 +206,8 @@ if (!window.hasRun) {
         action: "call_openai",
         text: selectedText,
         recipient: recipient,
-        tone: tone
+        tone: tone,
+        model: model
       }, (response) => {
         if (!response) {
             resultDiv.innerHTML = `<span class="error">Error: No response. Check API Key.</span>`;
