@@ -155,15 +155,15 @@ if (!window.hasRun) {
           <div class="input-group input-model">
             <label>Model</label>
             <select id="model">
-              <option value="gpt-5-mini" selected>GPT-5-mini — fast + cost-effective</option>
-              <option value="gpt-5">GPT-5 — highest quality</option>
-              <option value="gpt-5-nano">GPT-5-nano — ultra-fast + lowest cost</option>
+              <option value="gpt-5-mini" selected>GPT-5-mini — fast, cost-effective</option>
+              <option value="gpt-5">GPT-5 — highest quality, expensive</option>
+              <option value="gpt-5-nano">GPT-5-nano — ultra-fast, low cost</option>
               <option value="gpt-4.1">GPT-4.1 — strong reasoning</option>
               <option value="gpt-4.1-mini">GPT-4.1-mini — balanced price/perf</option>
-              <option value="gpt-4.1-nano">GPT-4.1-nano — lightweight + low cost</option>
+              <option value="gpt-4.1-nano">GPT-4.1-nano — lightweight, low cost</option>
               <option value="gpt-4o">GPT-4o — flagship multimodal</option>
-              <option value="gpt-4o-mini">GPT-4o-mini — small + affordable</option>
-              <option value="gpt-3.5-turbo">GPT-3.5 Turbo — legacy + budget</option>
+              <option value="gpt-4o-mini">GPT-4o-mini — small, affordable</option>
+              <option value="gpt-3.5-turbo">GPT-3.5 Turbo — legacy, low cost</option>
             </select>
           </div>
 
