@@ -17,6 +17,78 @@ function decryptData(encoded) {
   }
 }
 // ---------------------------------------------------
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
+
+function base64ToBuffer(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+async function deriveKey(passphrase, salt, iterations) {
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    textEncoder.encode(passphrase),
+    'PBKDF2',
+    false,
+    ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['decrypt']
+  );
+}
+
+async function decryptApiKey(encrypted, passphrase) {
+  const iterations = encrypted.iterations || 150000;
+  const salt = new Uint8Array(base64ToBuffer(encrypted.salt));
+  const iv = new Uint8Array(base64ToBuffer(encrypted.iv));
+  const key = await deriveKey(passphrase, salt, iterations);
+  const plaintext = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    base64ToBuffer(encrypted.ciphertext)
+  );
+  return textDecoder.decode(plaintext);
+}
+
+function storageGet(area, keys) {
+  return new Promise((resolve) => {
+    chrome.storage[area].get(keys, (result) => resolve(result || {}));
+  });
+}
+
+async function getApiKeyForRequest(requestPassphrase) {
+  const [local, session] = await Promise.all([
+    storageGet('local', ['openaiKeyEncrypted']),
+    storageGet('session', ['openaiPassphrase'])
+  ]);
+
+  if (!local.openaiKeyEncrypted) {
+    return { error: "Please save your OpenAI API key in settings." };
+  }
+
+  try {
+    const passphraseToUse = session.openaiPassphrase || requestPassphrase;
+    if (!passphraseToUse) {
+      return { error: "Please enter your password to unlock the API key." };
+    }
+    const apiKey = await decryptApiKey(local.openaiKeyEncrypted, passphraseToUse);
+    if (!session.openaiPassphrase && requestPassphrase) {
+      chrome.storage.session.set({ openaiPassphrase: requestPassphrase });
+    }
+    return { apiKey };
+  } catch (e) {
+    return { error: "Failed to decrypt API key. Please check your password." };
+  }
+}
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -31,8 +103,13 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     // Security check: cannot inject into chrome:// settings pages
     if (tab.url.startsWith("chrome://") || tab.url.startsWith("edge://")) return;
 
-    chrome.storage.sync.get(['openaiKey'], (result) => {
-      const action = result.openaiKey ? "open_modal" : "open_settings";
+    (async () => {
+      const [local, session] = await Promise.all([
+        storageGet('local', ['openaiKeyEncrypted']),
+        storageGet('session', ['openaiPassphrase'])
+      ]);
+      const hasEncrypted = Boolean(local.openaiKeyEncrypted);
+      const action = hasEncrypted ? "open_modal" : "open_settings";
 
       // 1. Always inject the script first.
       // 'activeTab' gives us permission to do this upon user click.
@@ -47,23 +124,17 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
           chrome.tabs.sendMessage(tab.id, { action });
         }
       });
-    });
+    })();
   }
 });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "call_openai") {
-    
-    chrome.storage.sync.get(['openaiKey'], async (result) => {
-      let apiKey = result.openaiKey;
-
-      if (!apiKey) {
-        sendResponse({ error: "Please save your OpenAI API Key in settings." });
+    (async () => {
+      const { apiKey, error } = await getApiKeyForRequest(request.passphrase);
+      if (error) {
+        sendResponse({ error });
         return;
-      }
-
-      if (!apiKey.startsWith("sk-")) {
-          apiKey = decryptData(apiKey);
       }
 
       try {
@@ -93,8 +164,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       } catch (error) {
         sendResponse({ error: "Network error or invalid API key." });
       }
-    });
+    })();
 
     return true; 
+  }
+  if (request.action === "get_session_passphrase") {
+    chrome.storage.session.get(['openaiPassphrase'], (result) => {
+      sendResponse({ hasPassphrase: Boolean(result.openaiPassphrase), passphrase: result.openaiPassphrase || '' });
+    });
+    return true;
+  }
+  if (request.action === "set_session_passphrase") {
+    chrome.storage.session.set({ openaiPassphrase: request.passphrase || '' }, () => {
+      sendResponse({ ok: true });
+    });
+    return true;
   }
 });

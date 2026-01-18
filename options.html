@@ -3,22 +3,71 @@
 <head>
   <title>Rephraser AI Settings</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; width: 300px; }
-    h2 { margin-top: 0; }
-    input { width: 100%; padding: 8px; margin: 10px 0; box-sizing: border-box; }
-    button { padding: 8px 15px; background: #28a745; color: white; border: none; cursor: pointer; }
-    button:hover { background: #218838; }
-    #status { margin-top: 10px; color: green; display: none; }
-    #notice { margin-top: 10px; color: #0c5460; background: #d1ecf1; border: 1px solid #bee5eb; padding: 8px; }
+    body {
+      font-family: sans-serif, Arial;
+      background: #f3f5f7;
+      margin: 0;
+      padding: 24px;
+    }
+    .modal {
+      background: white; padding: 20px; border-radius: 8px;
+      width: 420px; max-width: 90vw;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      display: flex; flex-direction: column; gap: 10px;
+      color: #333; box-sizing: border-box;
+      margin: 0 auto;
+    }
+    .header-row {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 5px;
+    }
+    h2 { margin: 0; font-size: 18px; color: #222; }
+    label { font-size: 12px; font-weight: bold; color: #555; margin-bottom: 4px; }
+    .input-group { display: flex; flex-direction: column; }
+    input {
+      width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;
+      box-sizing: border-box; font-size: 14px; height: 36px;
+    }
+    .notice {
+      color: #0c5460; background: #d1ecf1; border: 1px solid #bee5eb;
+      padding: 8px; border-radius: 4px;
+    }
+    h3 { margin: 10px 0 6px; font-size: 13px; }
+    .section { margin-top: 6px; padding-top: 6px; border-top: 1px solid #e5e5e5; }
+    .settings-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 5px; }
+    .btn-primary {
+      background: #007bff; color: white; border: none; padding: 0 20px;
+      border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold;
+      height: 36px; white-space: nowrap;
+    }
+    .btn-primary:hover { background: #0056b3; }
+    .error { color: #dc3545; font-size: 12px; }
+    .settings-status { color: #28a745; font-size: 12px; }
   </style>
 </head>
 <body>
-  <h2>Settings</h2>
-  <div id="notice">Enter your OpenAI API key to enable rephrasing. The key will only be stored locally in this browser and will not be shared with anyone.</div>
-  <label>OpenAI API Key:</label>
-  <input type="password" id="apiKey" placeholder="sk-...">
-  <button id="save">Save Key</button>
-  <div id="status">Saved!</div>
+  <div class="modal">
+    <div class="header-row">
+      <h2>Settings</h2>
+    </div>
+    <div class="notice">Enter your OpenAI API key to enable rephrasing. The key will only be stored locally in this browser and will not be shared with anyone.</div>
+    <div class="section">
+      <h3 id="settings-title">Setup</h3>
+      <div class="input-group" id="settings-api-key-section">
+        <label>OpenAI API Key</label>
+        <input type="password" id="api-key-input" placeholder="sk-...">
+      </div>
+      <div class="input-group" id="settings-password-section">
+        <label>Password</label>
+        <input type="password" id="password-input" placeholder="Enter a password">
+      </div>
+      <div class="settings-actions">
+        <button id="btn-save-key" class="btn-primary">Continue</button>
+      </div>
+    </div>
+    <div id="settings-error" class="error" style="display:none;"></div>
+    <div id="settings-status" class="settings-status" style="display:none;">Saved!</div>
+  </div>
   <script src="options.js"></script>
 </body>
 </html>

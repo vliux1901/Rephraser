@@ -109,12 +109,116 @@ if (!window.hasRun) {
       .notice { color: #0c5460; background: #d1ecf1; border: 1px solid #bee5eb; padding: 8px; border-radius: 4px; }
       .settings-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 5px; }
       .settings-status { color: #28a745; font-size: 12px; }
+      h3 { margin: 10px 0 6px; font-size: 13px; }
+      .section { margin-top: 6px; padding-top: 6px; border-top: 1px solid #e5e5e5; }
+      .unlock-row { margin-top: 6px; }
   `;
+
+  const textEncoder = new TextEncoder();
+  const textDecoder = new TextDecoder();
+
+  function bufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+
+  function base64ToBuffer(base64) {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes.buffer;
+  }
+
+  async function deriveKey(passphrase, salt, iterations) {
+    const keyMaterial = await crypto.subtle.importKey(
+      'raw',
+      textEncoder.encode(passphrase),
+      'PBKDF2',
+      false,
+      ['deriveKey']
+    );
+    return crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
+      keyMaterial,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
+  }
+
+  async function encryptApiKey(apiKey, passphrase) {
+    const iterations = 150000;
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const key = await deriveKey(passphrase, salt, iterations);
+    const ciphertext = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      textEncoder.encode(apiKey)
+    );
+    return {
+      ciphertext: bufferToBase64(ciphertext),
+      iv: bufferToBase64(iv),
+      salt: bufferToBase64(salt),
+      iterations
+    };
+  }
+
+  async function decryptApiKey(encrypted, passphrase) {
+    const iterations = encrypted.iterations || 150000;
+    const salt = new Uint8Array(base64ToBuffer(encrypted.salt));
+    const iv = new Uint8Array(base64ToBuffer(encrypted.iv));
+    const key = await deriveKey(passphrase, salt, iterations);
+    const plaintext = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      base64ToBuffer(encrypted.ciphertext)
+    );
+    return textDecoder.decode(plaintext);
+  }
+
+  function getLocalEncrypted() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(['openaiKeyEncrypted'], (result) => {
+        resolve(result.openaiKeyEncrypted || null);
+      });
+    });
+  }
+
+  function hasSessionPassphrase() {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'get_session_passphrase' }, (response) => {
+        resolve(Boolean(response && response.hasPassphrase));
+      });
+    });
+  }
+
+  function setSessionPassphrase(passphrase) {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'set_session_passphrase', passphrase }, (response) => {
+        resolve(Boolean(response && response.ok));
+      });
+    });
+  }
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "open_modal") {
       lastSelectedText = window.getSelection().toString();
-      createAndShowModal(lastSelectedText);
+      chrome.storage.local.get(['openaiKeyEncrypted'], async (localItems) => {
+        const hasEncrypted = Boolean(localItems.openaiKeyEncrypted);
+        const hasPassphrase = await hasSessionPassphrase();
+        if (hasEncrypted && !hasPassphrase) {
+          createAndShowUnlockModal(lastSelectedText);
+        } else {
+          createAndShowModal(lastSelectedText);
+        }
+      });
     } else if (request.action === "open_settings") {
       lastSelectedText = window.getSelection().toString();
       createAndShowSettingsModal(lastSelectedText);
@@ -216,23 +320,27 @@ if (!window.hasRun) {
       const context = shadowRoot.getElementById('context').value;
       
       resultDiv.innerText = "Generating...";
-      
-      chrome.runtime.sendMessage({
-        action: "call_openai",
-        text: selectedText,
-        recipient: recipient,
-        tone: tone,
-        model: model,
-        context: context
-      }, (response) => {
-        if (!response) {
-            resultDiv.innerHTML = `<span class="error">Error: No response. Check API Key.</span>`;
-        } else if (response.error) {
-            resultDiv.innerHTML = `<span class="error">${response.error}</span>`;
-        } else {
-            resultDiv.innerText = response.result;
-        }
-      });
+
+      const sendRequest = () => {
+        chrome.runtime.sendMessage({
+          action: "call_openai",
+          text: selectedText,
+          recipient: recipient,
+          tone: tone,
+          model: model,
+          context: context
+        }, (response) => {
+          if (!response) {
+              resultDiv.innerHTML = `<span class="error">Error: No response. Check API Key.</span>`;
+          } else if (response.error) {
+              resultDiv.innerHTML = `<span class="error">${response.error}</span>`;
+          } else {
+              resultDiv.innerText = response.result;
+          }
+        });
+      };
+
+      sendRequest();
     };
   }
 
@@ -256,21 +364,33 @@ if (!window.hasRun) {
            <button id="btn-close-settings" class="close-icon">&times;</button>
         </div>
         <div class="notice">Enter your OpenAI API key to enable rephrasing. The key will only be stored locally in this browser and will not be shared with anyone.</div>
-        <div class="input-group">
-          <label>OpenAI API Key</label>
-          <input type="password" id="api-key-input" placeholder="sk-...">
+        <div class="section">
+          <h3 id="settings-title">Setup</h3>
+          <div class="input-group" id="settings-api-key-section">
+            <label>OpenAI API Key</label>
+            <input type="password" id="api-key-input" placeholder="sk-...">
+          </div>
+          <div class="input-group" id="settings-password-section">
+            <label>Password</label>
+            <input type="password" id="password-input" placeholder="Enter a password">
+          </div>
+          <div class="settings-actions">
+            <button id="btn-save-key" class="btn-primary">Continue</button>
+          </div>
         </div>
         <div id="settings-error" class="error" style="display:none;"></div>
         <div id="settings-status" class="settings-status" style="display:none;">Saved!</div>
         <div class="settings-actions">
-          <button id="btn-cancel-settings" class="btn-secondary">Cancel</button>
-          <button id="btn-save-settings" class="btn-primary">Save Key</button>
+          <button id="btn-cancel-settings" class="btn-secondary">Close</button>
         </div>
       </div>
     `;
     shadowRoot.appendChild(container);
 
     const apiKeyInput = shadowRoot.getElementById('api-key-input');
+    const passwordInput = shadowRoot.getElementById('password-input');
+    const settingsTitle = shadowRoot.getElementById('settings-title');
+    const apiKeySection = shadowRoot.getElementById('settings-api-key-section');
     const errorDiv = shadowRoot.getElementById('settings-error');
     const statusDiv = shadowRoot.getElementById('settings-status');
 
@@ -283,28 +403,162 @@ if (!window.hasRun) {
 
     const preservedSelectedText = selectedText || '';
 
-    const saveKey = () => {
-      const apiKey = apiKeyInput.value.trim();
+    const showError = (message) => {
+      errorDiv.textContent = message;
+      errorDiv.style.display = 'block';
+    };
+
+    const showStatus = (message) => {
+      statusDiv.textContent = message;
+      statusDiv.style.display = 'block';
+      setTimeout(() => {
+        statusDiv.style.display = 'none';
+      }, 2000);
+    };
+
+    const clearMessages = () => {
       errorDiv.style.display = 'none';
       statusDiv.style.display = 'none';
-      if (!apiKey) {
-        errorDiv.textContent = "Please enter an API key.";
-        errorDiv.style.display = 'block';
+    };
+
+    const saveKey = async () => {
+      clearMessages();
+      const apiKey = apiKeyInput.value.trim();
+      const password = passwordInput.value.trim();
+      const existingEncrypted = await getLocalEncrypted();
+      if (!existingEncrypted) {
+        if (!apiKey) {
+          showError("Please enter an API key.");
+          return;
+        }
+        if (!password) {
+          showError("Please enter a password.");
+          return;
+        }
+        const encrypted = await encryptApiKey(apiKey, password);
+        chrome.storage.local.set({ openaiKeyEncrypted: encrypted }, async () => {
+          await setSessionPassphrase(password);
+          showStatus("API key saved.");
+          setTimeout(() => {
+            closeSettings();
+            createAndShowModal(preservedSelectedText);
+          }, 800);
+        });
         return;
       }
-      chrome.storage.sync.set({ openaiKey: apiKey }, () => {
-        statusDiv.style.display = 'block';
+
+      if (!password) {
+        showError("Please enter your password.");
+        return;
+      }
+      try {
+        await decryptApiKey(existingEncrypted, password);
+        await setSessionPassphrase(password);
+        showStatus("Unlocked.");
         setTimeout(() => {
           closeSettings();
           createAndShowModal(preservedSelectedText);
         }, 800);
-      });
+      } catch (e) {
+        showError("Password is incorrect.");
+      }
     };
 
-    shadowRoot.getElementById('btn-save-settings').onclick = saveKey;
+    shadowRoot.getElementById('btn-save-key').onclick = saveKey;
     apiKeyInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         saveKey();
+      }
+    });
+    passwordInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        saveKey();
+      }
+    });
+
+    getLocalEncrypted().then((encrypted) => {
+      if (encrypted) {
+        if (settingsTitle) settingsTitle.textContent = 'Unlock';
+        if (apiKeySection) apiKeySection.style.display = 'none';
+        if (passwordInput) {
+          passwordInput.placeholder = 'Enter password to unlock';
+        }
+      }
+    });
+  }
+
+  function createAndShowUnlockModal(selectedText) {
+    if (hostElement) hostElement.remove();
+
+    hostElement = document.createElement('div');
+    document.body.appendChild(hostElement);
+    shadowRoot = hostElement.attachShadow({ mode: 'open' });
+
+    const style = document.createElement('style');
+    style.textContent = baseStyles;
+    shadowRoot.appendChild(style);
+
+    const container = document.createElement('div');
+    container.className = 'overlay';
+    container.innerHTML = `
+      <div class="modal settings">
+        <div class="header-row">
+           <h2>Unlock</h2>
+           <button id="btn-close-unlock" class="close-icon">&times;</button>
+        </div>
+        <div class="notice">Enter your password to unlock the saved API key for this session.</div>
+        <div class="input-group">
+          <label>Password</label>
+          <input type="password" id="unlock-password-input" placeholder="Enter password">
+        </div>
+        <div id="unlock-error" class="error" style="display:none;"></div>
+        <div class="settings-actions">
+          <button id="btn-cancel-unlock" class="btn-secondary">Cancel</button>
+          <button id="btn-unlock" class="btn-primary">Unlock</button>
+        </div>
+      </div>
+    `;
+    shadowRoot.appendChild(container);
+
+    const passwordInput = shadowRoot.getElementById('unlock-password-input');
+    const errorDiv = shadowRoot.getElementById('unlock-error');
+
+    passwordInput.focus();
+
+    const closeUnlock = () => hostElement.remove();
+    shadowRoot.getElementById('btn-close-unlock').onclick = closeUnlock;
+    shadowRoot.getElementById('btn-cancel-unlock').onclick = closeUnlock;
+    container.onclick = (e) => { if (e.target === container) closeUnlock(); };
+
+    const unlock = async () => {
+      errorDiv.style.display = 'none';
+      const password = passwordInput.value.trim();
+      if (!password) {
+        errorDiv.textContent = 'Please enter your password.';
+        errorDiv.style.display = 'block';
+        return;
+      }
+      const encrypted = await getLocalEncrypted();
+      if (!encrypted) {
+        closeUnlock();
+        createAndShowSettingsModal(selectedText);
+        return;
+      }
+      try {
+        await decryptApiKey(encrypted, password);
+        await setSessionPassphrase(password);
+        closeUnlock();
+        createAndShowModal(selectedText);
+      } catch (e) {
+        errorDiv.textContent = 'Password is incorrect.';
+        errorDiv.style.display = 'block';
+      }
+    };
+
+    shadowRoot.getElementById('btn-unlock').onclick = unlock;
+    passwordInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        unlock();
       }
     });
   }
