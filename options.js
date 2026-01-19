@@ -137,6 +137,9 @@ document.getElementById('btn-save-key').addEventListener('click', async () => {
     chrome.storage.local.set({ openaiKeyEncrypted: encryptedKey }, () => {
       setSessionPassphrase(password).then(() => {
         showStatus('API key saved.');
+        setTimeout(() => {
+          window.close();
+        }, 400);
       });
     });
     return;
@@ -150,14 +153,28 @@ document.getElementById('btn-save-key').addEventListener('click', async () => {
     await decryptApiKey(encrypted, password);
     setSessionPassphrase(password).then(() => {
       showStatus('Unlocked.');
+      setTimeout(() => {
+        window.close();
+      }, 400);
     });
   } catch (e) {
     showError('Password is incorrect.');
   }
 });
 
+document.getElementById('btn-remove-key').addEventListener('click', () => {
+  clearError();
+  chrome.storage.local.remove(['openaiKeyEncrypted'], () => {
+    showStatus('API key removed.');
+    setTimeout(() => {
+      window.close();
+    }, 400);
+  });
+});
+
 document.addEventListener('DOMContentLoaded', async () => {
   const sectionTitle = document.getElementById('settings-title');
+  const apiKeyInput = document.getElementById('api-key-input');
   const passwordInput = document.getElementById('password-input');
   const encrypted = await getLocalEncrypted();
   if (encrypted) {
@@ -168,6 +185,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   chrome.runtime.sendMessage({ action: 'get_session_passphrase' }, (response) => {
     if (passwordInput && response && response.hasPassphrase) {
       passwordInput.value = response.passphrase || '';
+      if (apiKeyInput && encrypted) {
+        decryptApiKey(encrypted, response.passphrase).then((apiKey) => {
+          apiKeyInput.value = apiKey || '';
+        }).catch(() => {});
+      }
     }
   });
 });
