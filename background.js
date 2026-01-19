@@ -93,7 +93,7 @@ async function getApiKeyForRequest(requestPassphrase) {
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "rephrase-text",
-    title: "Rephrase selected text...",
+    title: "Rephrase selected text ...",
     contexts: ["selection"]
   });
 });
