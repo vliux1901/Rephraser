@@ -112,6 +112,7 @@ if (!window.hasRun) {
       h3 { margin: 10px 0 6px; font-size: 13px; }
       .section { margin-top: 6px; padding-top: 6px; border-top: 1px solid #e5e5e5; }
       .unlock-row { margin-top: 6px; }
+      #settings-password-section { margin-top: 8px; }
   `;
 
   const textEncoder = new TextEncoder();
@@ -365,7 +366,6 @@ if (!window.hasRun) {
         </div>
         <div class="notice">Enter your OpenAI API key to enable rephrasing. The key will only be stored locally in this browser and will not be shared with anyone.</div>
         <div class="section">
-          <h3 id="settings-title">Setup</h3>
           <div class="input-group" id="settings-api-key-section">
             <label>OpenAI API Key</label>
             <input type="password" id="api-key-input" placeholder="sk-...">
@@ -380,9 +380,7 @@ if (!window.hasRun) {
         </div>
         <div id="settings-error" class="error" style="display:none;"></div>
         <div id="settings-status" class="settings-status" style="display:none;">Saved!</div>
-        <div class="settings-actions">
-          <button id="btn-cancel-settings" class="btn-secondary">Close</button>
-        </div>
+        <div class="settings-actions"></div>
       </div>
     `;
     shadowRoot.appendChild(container);
@@ -398,7 +396,6 @@ if (!window.hasRun) {
 
     const closeSettings = () => hostElement.remove();
     shadowRoot.getElementById('btn-close-settings').onclick = closeSettings;
-    shadowRoot.getElementById('btn-cancel-settings').onclick = closeSettings;
     container.onclick = (e) => { if (e.target === container) closeSettings(); };
 
     const preservedSelectedText = selectedText || '';
