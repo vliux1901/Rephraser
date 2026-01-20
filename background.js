@@ -90,13 +90,37 @@ async function getApiKeyForRequest(requestPassphrase) {
   }
 }
 
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: "rephrase-text",
-    title: "Rephrase selected text ...",
-    contexts: ["selection"]
+function registerContextMenus() {
+  console.log("Registering context menus...");
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: "rephrase-text",
+      title: "Rephrase text ...",
+      contexts: ["selection"]
+    }, () => {
+      if (chrome.runtime.lastError) {
+        console.error("Failed to create rephrase menu:", chrome.runtime.lastError.message);
+      }
+    });
+    chrome.contextMenus.create({
+      id: "summarize-page",
+      title: "Summarize text ...",
+      contexts: ["page", "selection"]
+    }, () => {
+      if (chrome.runtime.lastError) {
+        console.error("Failed to create summarize menu:", chrome.runtime.lastError.message);
+      }
+    });
   });
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  registerContextMenus();
 });
+
+// Ensure menus exist on service worker activation (e.g. extension reload).
+console.log("Background service worker loaded.");
+registerContextMenus();
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === "rephrase-text") {
@@ -125,6 +149,20 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
         }
       });
     })();
+  }
+  if (info.menuItemId === "summarize-page") {
+    if (tab.url.startsWith("chrome://") || tab.url.startsWith("edge://")) return;
+
+    chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ["content.js"]
+    }, () => {
+      if (chrome.runtime.lastError) {
+        console.error("Script injection failed: " + chrome.runtime.lastError.message);
+      } else {
+        chrome.tabs.sendMessage(tab.id, { action: "open_summary_modal" });
+      }
+    });
   }
 });
 
@@ -167,6 +205,43 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     })();
 
     return true; 
+  }
+  if (request.action === "call_openai_summary") {
+    (async () => {
+      const { apiKey, error } = await getApiKeyForRequest(request.passphrase);
+      if (error) {
+        sendResponse({ error });
+        return;
+      }
+
+      try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: request.model || "gpt-5-mini",
+            messages: [
+              { role: "system", content: "You are a helpful assistant that summarizes text." },
+              { role: "user", content: `Summarize the web page content between '[[["' and '"]]]' in plain text. Keep it concise (less than 3 sentences) and faithful to the source.\nTitle: ${request.title || "Untitled"}\nURL: ${request.url || "Unknown"}\n[[["${request.text}"]]]` }
+            ]
+          })
+        });
+
+        const data = await response.json();
+        if (data.error) {
+          sendResponse({ error: data.error.message });
+        } else {
+          sendResponse({ result: data.choices[0].message.content });
+        }
+      } catch (error) {
+        sendResponse({ error: "Network error or invalid API key." });
+      }
+    })();
+
+    return true;
   }
   if (request.action === "get_session_passphrase") {
     chrome.storage.session.get(['openaiPassphrase'], (result) => {

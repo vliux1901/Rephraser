@@ -5,6 +5,7 @@ if (!window.hasRun) {
   let shadowRoot = null;
   let hostElement = null;
   let lastSelectedText = '';
+  const MAX_SUMMARY_CHARS = 12000;
   const baseStyles = `
       :host {
         color-scheme: light;
@@ -107,6 +108,8 @@ if (!window.hasRun) {
       .result { background: #f8f9fa; border: 1px solid #e9ecef; color: #333; }
       .error { color: #dc3545; font-size: 12px; }
       .notice { color: #0c5460; background: #d1ecf1; border: 1px solid #bee5eb; padding: 8px; border-radius: 4px; }
+      .meta { font-size: 12px; color: #666; }
+      .meta a { color: #0b63ce; text-decoration: none; }
       .settings-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 5px; }
       .settings-status { color: #28a745; font-size: 12px; }
       h3 { margin: 10px 0 6px; font-size: 13px; }
@@ -208,6 +211,37 @@ if (!window.hasRun) {
     });
   }
 
+  function normalizeText(text) {
+    return (text || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function getPageContent(maxChars) {
+    const rawText = document.body ? document.body.innerText : '';
+    const normalized = normalizeText(rawText);
+    if (normalized.length <= maxChars) {
+      return { text: normalized, truncated: false };
+    }
+    return { text: normalized.slice(0, maxChars), truncated: true };
+  }
+
+  function buildSummaryPayload() {
+    const { text, truncated } = getPageContent(MAX_SUMMARY_CHARS);
+    return {
+      text,
+      truncated,
+      title: document.title || 'Untitled page',
+      url: window.location.href
+    };
+  }
+
+  function openAfterAuth(mode, payload) {
+    if (mode === 'summary') {
+      createAndShowSummaryModal(payload);
+      return;
+    }
+    createAndShowModal((payload && payload.selectedText) || '');
+  }
+
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "open_modal") {
       lastSelectedText = window.getSelection().toString();
@@ -215,14 +249,29 @@ if (!window.hasRun) {
         const hasEncrypted = Boolean(localItems.openaiKeyEncrypted);
         const hasPassphrase = await hasSessionPassphrase();
         if (hasEncrypted && !hasPassphrase) {
-          createAndShowUnlockModal(lastSelectedText);
-        } else {
-          createAndShowModal(lastSelectedText);
+          createAndShowUnlockModal({ mode: 'rephrase', payload: { selectedText: lastSelectedText } });
+          return;
         }
+        createAndShowModal(lastSelectedText);
       });
     } else if (request.action === "open_settings") {
       lastSelectedText = window.getSelection().toString();
-      createAndShowSettingsModal(lastSelectedText);
+      createAndShowSettingsModal({ mode: request.mode || 'rephrase', payload: { selectedText: lastSelectedText } });
+    } else if (request.action === "open_summary_modal") {
+      const summaryPayload = buildSummaryPayload();
+      chrome.storage.local.get(['openaiKeyEncrypted'], async (localItems) => {
+        const hasEncrypted = Boolean(localItems.openaiKeyEncrypted);
+        const hasPassphrase = await hasSessionPassphrase();
+        if (!hasEncrypted) {
+          createAndShowSettingsModal({ mode: 'summary', payload: summaryPayload });
+          return;
+        }
+        if (hasEncrypted && !hasPassphrase) {
+          createAndShowUnlockModal({ mode: 'summary', payload: summaryPayload });
+          return;
+        }
+        createAndShowSummaryModal(summaryPayload);
+      });
     }
   });
 
@@ -345,7 +394,116 @@ if (!window.hasRun) {
     };
   }
 
-  function createAndShowSettingsModal(selectedText) {
+  function createAndShowSummaryModal(payload) {
+    const pageText = (payload && payload.text) || '';
+    const pageTitle = (payload && payload.title) || 'Untitled page';
+    const pageUrl = (payload && payload.url) || '';
+    const isTruncated = Boolean(payload && payload.truncated);
+
+    if (hostElement) hostElement.remove();
+
+    hostElement = document.createElement('div');
+    document.body.appendChild(hostElement);
+    shadowRoot = hostElement.attachShadow({ mode: 'open' });
+
+    const style = document.createElement('style');
+    style.textContent = baseStyles;
+    shadowRoot.appendChild(style);
+
+    const container = document.createElement('div');
+    container.className = 'overlay';
+    container.innerHTML = `
+      <div class="modal">
+        <div class="header-row">
+           <h2>Summarize page</h2>
+           <button id="btn-close-summary" class="close-icon">&times;</button>
+        </div>
+        <div class="input-row">
+          <div class="input-group input-model">
+            <label>Model</label>
+            <select id="summary-model">
+              <option value="gpt-5-mini" selected>GPT-5-mini — fast, cost-effective</option>
+              <option value="gpt-5">GPT-5 — highest quality, expensive</option>
+              <option value="gpt-5-nano">GPT-5-nano — ultra-fast, low cost</option>
+              <option value="gpt-4.1">GPT-4.1 — strong reasoning</option>
+              <option value="gpt-4.1-mini">GPT-4.1-mini — balanced price/perf</option>
+              <option value="gpt-4.1-nano">GPT-4.1-nano — lightweight, low cost</option>
+              <option value="gpt-4o">GPT-4o — flagship multimodal</option>
+              <option value="gpt-4o-mini">GPT-4o-mini — small, affordable</option>
+              <option value="gpt-3.5-turbo">GPT-3.5 Turbo — legacy, low cost</option>
+            </select>
+          </div>
+          <button id="btn-summarize" class="btn-primary">Summarize</button>
+        </div>
+        <div class="meta">
+          <div><strong>Title:</strong> <span id="summary-title"></span></div>
+          <div><strong>URL:</strong> <a id="summary-url" href="#" target="_blank" rel="noreferrer"></a></div>
+          <div id="summary-truncated" class="notice" style="display:none;">Content truncated to fit the summary limit.</div>
+        </div>
+        <div class="grid-row">
+            <div class="col">
+                <label>Page content</label>
+                <div id="page-text" class="text-box original"></div>
+            </div>
+
+            <div class="col">
+                <label>Summary</label>
+                <div id="summary-result" class="text-box result"></div>
+            </div>
+        </div>
+      </div>
+    `;
+    shadowRoot.appendChild(container);
+
+    const pageTextDiv = shadowRoot.getElementById('page-text');
+    pageTextDiv.innerText = pageText || 'No readable content found on this page.';
+    const titleSpan = shadowRoot.getElementById('summary-title');
+    const urlLink = shadowRoot.getElementById('summary-url');
+    const truncatedNotice = shadowRoot.getElementById('summary-truncated');
+    titleSpan.textContent = pageTitle;
+    if (pageUrl) {
+      urlLink.textContent = pageUrl;
+      urlLink.href = pageUrl;
+    } else {
+      urlLink.textContent = 'Unknown';
+      urlLink.removeAttribute('href');
+    }
+    if (isTruncated) {
+      truncatedNotice.style.display = 'block';
+    }
+
+    const resultDiv = shadowRoot.getElementById('summary-result');
+    shadowRoot.getElementById('btn-close-summary').onclick = () => hostElement.remove();
+    container.onclick = (e) => { if (e.target === container) hostElement.remove(); };
+
+    shadowRoot.getElementById('btn-summarize').onclick = () => {
+      if (!pageText) {
+        resultDiv.innerHTML = `<span class="error">No readable content found to summarize.</span>`;
+        return;
+      }
+      const model = shadowRoot.getElementById('summary-model').value;
+      resultDiv.innerText = "Generating summary...";
+      chrome.runtime.sendMessage({
+        action: "call_openai_summary",
+        text: pageText,
+        title: pageTitle,
+        url: pageUrl,
+        model
+      }, (response) => {
+        if (!response) {
+          resultDiv.innerHTML = `<span class="error">Error: No response. Check API Key.</span>`;
+        } else if (response.error) {
+          resultDiv.innerHTML = `<span class="error">${response.error}</span>`;
+        } else {
+          resultDiv.innerText = response.result;
+        }
+      });
+    };
+  }
+
+  function createAndShowSettingsModal(options) {
+    const mode = (options && options.mode) || 'rephrase';
+    const payload = (options && options.payload) || {};
     if (hostElement) hostElement.remove();
 
     hostElement = document.createElement('div');
@@ -398,8 +556,6 @@ if (!window.hasRun) {
     shadowRoot.getElementById('btn-close-settings').onclick = closeSettings;
     container.onclick = (e) => { if (e.target === container) closeSettings(); };
 
-    const preservedSelectedText = selectedText || '';
-
     const showError = (message) => {
       errorDiv.textContent = message;
       errorDiv.style.display = 'block';
@@ -438,7 +594,7 @@ if (!window.hasRun) {
           showStatus("API key saved.");
           setTimeout(() => {
             closeSettings();
-            createAndShowModal(preservedSelectedText);
+            openAfterAuth(mode, payload);
           }, 800);
         });
         return;
@@ -454,7 +610,7 @@ if (!window.hasRun) {
         showStatus("Unlocked.");
         setTimeout(() => {
           closeSettings();
-          createAndShowModal(preservedSelectedText);
+          openAfterAuth(mode, payload);
         }, 800);
       } catch (e) {
         showError("Password is incorrect.");
@@ -484,7 +640,9 @@ if (!window.hasRun) {
     });
   }
 
-  function createAndShowUnlockModal(selectedText) {
+  function createAndShowUnlockModal(options) {
+    const mode = (options && options.mode) || 'rephrase';
+    const payload = (options && options.payload) || {};
     if (hostElement) hostElement.remove();
 
     hostElement = document.createElement('div');
@@ -538,14 +696,14 @@ if (!window.hasRun) {
       const encrypted = await getLocalEncrypted();
       if (!encrypted) {
         closeUnlock();
-        createAndShowSettingsModal(selectedText);
+        createAndShowSettingsModal({ mode, payload });
         return;
       }
       try {
         await decryptApiKey(encrypted, password);
         await setSessionPassphrase(password);
         closeUnlock();
-        createAndShowModal(selectedText);
+        openAfterAuth(mode, payload);
       } catch (e) {
         errorDiv.textContent = 'Password is incorrect.';
         errorDiv.style.display = 'block';
