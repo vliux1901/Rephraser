@@ -225,7 +225,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             model: request.model || "gpt-5-mini",
             messages: [
               { role: "system", content: "You are a helpful assistant that summarizes text." },
-              { role: "user", content: `Summarize the web page content between '[[["' and '"]]]' in plain text. Keep it concise (less than 3 sentences) and faithful to the source.\nTitle: ${request.title || "Untitled"}\nURL: ${request.url || "Unknown"}\n[[["${request.text}"]]]` }
+              { role: "user", content: `Summarize the web page content between '[[["' and '"]]]' in plain text. Keep it concise and faithful to the source. Limit to ${request.maxSentences || 1} sentence(s).\nTitle: ${request.title || "Untitled"}\nURL: ${request.url || "Unknown"}\n[[["${request.text}"]]]` }
             ]
           })
         });

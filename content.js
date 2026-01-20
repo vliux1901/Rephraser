@@ -433,6 +433,16 @@ if (!window.hasRun) {
               <option value="gpt-3.5-turbo">GPT-3.5 Turbo — legacy, low cost</option>
             </select>
           </div>
+          <div class="input-group input-sentences">
+            <label>Max sentences</label>
+            <select id="summary-sentences">
+              <option value="1" selected>1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
+          </div>
           <button id="btn-summarize" class="btn-primary">Summarize</button>
         </div>
         <div class="meta">
@@ -482,13 +492,15 @@ if (!window.hasRun) {
         return;
       }
       const model = shadowRoot.getElementById('summary-model').value;
+      const maxSentences = Number(shadowRoot.getElementById('summary-sentences').value) || 1;
       resultDiv.innerText = "Generating summary...";
       chrome.runtime.sendMessage({
         action: "call_openai_summary",
         text: pageText,
         title: pageTitle,
         url: pageUrl,
-        model
+        model,
+        maxSentences
       }, (response) => {
         if (!response) {
           resultDiv.innerHTML = `<span class="error">Error: No response. Check API Key.</span>`;
