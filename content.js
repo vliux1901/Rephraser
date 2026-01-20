@@ -225,14 +225,30 @@ if (!window.hasRun) {
     return { text: normalized.slice(0, maxChars), truncated: true, length: normalized.length };
   }
 
+  function getSelectionContent() {
+    return normalizeText(window.getSelection().toString());
+  }
+
   function buildSummaryPayload() {
+    const selectedText = getSelectionContent();
+    if (selectedText) {
+      return {
+        text: selectedText,
+        truncated: false,
+        length: selectedText.length,
+        title: document.title || 'Untitled page',
+        url: window.location.href,
+        isSelection: true
+      };
+    }
     const { text, truncated, length } = getPageContent(MAX_SUMMARY_CHARS);
     return {
       text,
       truncated,
       length,
       title: document.title || 'Untitled page',
-      url: window.location.href
+      url: window.location.href,
+      isSelection: false
     };
   }
 
@@ -402,6 +418,7 @@ if (!window.hasRun) {
     const pageUrl = (payload && payload.url) || '';
     const isTruncated = Boolean(payload && payload.truncated);
     const fullLength = (payload && payload.length) || 0;
+    const isSelection = Boolean(payload && payload.isSelection);
 
     if (hostElement) hostElement.remove();
 
@@ -481,7 +498,10 @@ if (!window.hasRun) {
       urlLink.textContent = 'Unknown';
       urlLink.removeAttribute('href');
     }
-    if (isTruncated) {
+    if (isSelection) {
+      truncatedNotice.textContent = "Summarizing the selected text only.";
+      truncatedNotice.style.display = 'block';
+    } else if (isTruncated) {
       truncatedNotice.textContent = `Page is too long. Showing the first ${MAX_SUMMARY_CHARS.toLocaleString()} of ${fullLength.toLocaleString()} characters for summary.`;
       truncatedNotice.style.display = 'block';
     }
