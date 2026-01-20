@@ -20,10 +20,10 @@ if (!window.hasRun) {
         background: white; padding: 20px; border-radius: 8px;
         
         /* Dimensions */
-        width: 50vw;       
-        height: 50vh;      
-        min-width: 600px;
-        min-height: 400px; 
+        width: 65vw;       
+        height: 65vh;      
+        min-width: 780px;
+        min-height: 520px; 
         max-width: 95vw;
         max-height: 95vh;
         
@@ -33,8 +33,8 @@ if (!window.hasRun) {
         box-sizing: border-box;
       }
       .modal.settings {
-        width: 420px;
-        min-width: 320px;
+        width: 546px;
+        min-width: 416px;
         height: auto;
         min-height: auto;
       }
@@ -102,13 +102,14 @@ if (!window.hasRun) {
         padding: 10px; border-radius: 4px; 
         flex: 1; height: 100%; 
         overflow-y: auto; white-space: pre-wrap; 
-        font-size: 13px; line-height: 1.4; box-sizing: border-box; width: 100%;
+        font-size: 15px; line-height: 1.5; box-sizing: border-box; width: 100%;
       }
       .original { background: #fff; border: 1px dashed #ccc; color: #555; }
       .result { background: #f8f9fa; border: 1px solid #e9ecef; color: #333; }
       .error { color: #dc3545; font-size: 12px; }
       .notice { color: #0c5460; background: #d1ecf1; border: 1px solid #bee5eb; padding: 8px; border-radius: 4px; }
       .meta { font-size: 12px; color: #666; }
+      .meta-row { margin-bottom: 6px; }
       .meta a { color: #0b63ce; text-decoration: none; }
       .settings-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 5px; }
       .settings-status { color: #28a745; font-size: 12px; }
@@ -446,8 +447,8 @@ if (!window.hasRun) {
           <button id="btn-summarize" class="btn-primary">Summarize</button>
         </div>
         <div class="meta">
-          <div><strong>Title:</strong> <span id="summary-title"></span></div>
-          <div><strong>URL:</strong> <a id="summary-url" href="#" target="_blank" rel="noreferrer"></a></div>
+          <div class="meta-row"><strong>Title:</strong> <span id="summary-title"></span></div>
+          <div class="meta-row"><strong>URL:</strong> <a id="summary-url" href="#" target="_blank" rel="noreferrer"></a></div>
           <div id="summary-truncated" class="notice" style="display:none;">Content truncated to fit the summary limit.</div>
         </div>
         <div class="grid-row">
