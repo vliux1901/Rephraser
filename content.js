@@ -5,7 +5,7 @@ if (!window.hasRun) {
   let shadowRoot = null;
   let hostElement = null;
   let lastSelectedText = '';
-  const MAX_SUMMARY_CHARS = 12000;
+  const MAX_SUMMARY_CHARS = 102400;
   const baseStyles = `
       :host {
         color-scheme: light;
@@ -220,16 +220,17 @@ if (!window.hasRun) {
     const rawText = document.body ? document.body.innerText : '';
     const normalized = normalizeText(rawText);
     if (normalized.length <= maxChars) {
-      return { text: normalized, truncated: false };
+      return { text: normalized, truncated: false, length: normalized.length };
     }
-    return { text: normalized.slice(0, maxChars), truncated: true };
+    return { text: normalized.slice(0, maxChars), truncated: true, length: normalized.length };
   }
 
   function buildSummaryPayload() {
-    const { text, truncated } = getPageContent(MAX_SUMMARY_CHARS);
+    const { text, truncated, length } = getPageContent(MAX_SUMMARY_CHARS);
     return {
       text,
       truncated,
+      length,
       title: document.title || 'Untitled page',
       url: window.location.href
     };
@@ -400,6 +401,7 @@ if (!window.hasRun) {
     const pageTitle = (payload && payload.title) || 'Untitled page';
     const pageUrl = (payload && payload.url) || '';
     const isTruncated = Boolean(payload && payload.truncated);
+    const fullLength = (payload && payload.length) || 0;
 
     if (hostElement) hostElement.remove();
 
@@ -449,7 +451,7 @@ if (!window.hasRun) {
         <div class="meta">
           <div class="meta-row"><strong>Title:</strong> <span id="summary-title"></span></div>
           <div class="meta-row"><strong>URL:</strong> <a id="summary-url" href="#" target="_blank" rel="noreferrer"></a></div>
-          <div id="summary-truncated" class="notice" style="display:none;">Content truncated to fit the summary limit.</div>
+          <div id="summary-truncated" class="notice" style="display:none;"></div>
         </div>
         <div class="grid-row">
             <div class="col">
@@ -480,6 +482,7 @@ if (!window.hasRun) {
       urlLink.removeAttribute('href');
     }
     if (isTruncated) {
+      truncatedNotice.textContent = `Page is too long. Showing the first ${MAX_SUMMARY_CHARS.toLocaleString()} of ${fullLength.toLocaleString()} characters for summary.`;
       truncatedNotice.style.display = 'block';
     }
 
