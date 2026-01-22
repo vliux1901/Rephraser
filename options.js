@@ -75,14 +75,6 @@ function getLocalEncrypted() {
   });
 }
 
-function getSessionPassphrase() {
-  return new Promise((resolve) => {
-    chrome.storage.session.get(['openaiPassphrase'], (result) => {
-      resolve(result.openaiPassphrase || '');
-    });
-  });
-}
-
 function showStatus(message) {
   const status = document.getElementById('settings-status');
   if (!status) return;

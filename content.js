@@ -1,5 +1,8 @@
 // Prevent duplicate listeners if injected multiple times
-if (!window.hasRun) {
+(() => {
+  if (window.hasRun) {
+    return;
+  }
   window.hasRun = true;
 
   let shadowRoot = null;
@@ -260,7 +263,7 @@ if (!window.hasRun) {
     createAndShowModal((payload && payload.selectedText) || '');
   }
 
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((request) => {
     if (request.action === "open_modal") {
       lastSelectedText = window.getSelection().toString();
       chrome.storage.local.get(['openaiKeyEncrypted'], async (localItems) => {
@@ -753,4 +756,4 @@ if (!window.hasRun) {
       }
     });
   }
-}
+})();

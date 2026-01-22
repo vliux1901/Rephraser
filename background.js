@@ -1,22 +1,3 @@
-// --- Encryption Helper Functions (Same as before) ---
-const SECRET_SALT = "rephraser-extension-secret-salt-9876"; 
-
-function decryptData(encoded) {
-  try {
-    const text = atob(encoded);
-    const textChars = text.split('');
-    const saltChars = SECRET_SALT.split('');
-    let decrypted = "";
-    for(let i = 0; i < textChars.length; i++) {
-      const charCode = textChars[i].charCodeAt(0) ^ saltChars[i % saltChars.length].charCodeAt(0);
-      decrypted += String.fromCharCode(charCode);
-    }
-    return decrypted;
-  } catch (e) {
-    return encoded;
-  }
-}
-// ---------------------------------------------------
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
@@ -128,7 +109,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     if (tab.url.startsWith("chrome://") || tab.url.startsWith("edge://")) return;
 
     (async () => {
-      const [local, session] = await Promise.all([
+      const [local] = await Promise.all([
         storageGet('local', ['openaiKeyEncrypted']),
         storageGet('session', ['openaiPassphrase'])
       ]);
