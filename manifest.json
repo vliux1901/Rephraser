@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Rephraser AI",
-  "version": "1.3.2",
+  "version": "1.4",
   "description": "Rephrase text by using AI.",
   "permissions": [
     "contextMenus",
