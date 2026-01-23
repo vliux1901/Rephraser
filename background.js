@@ -120,7 +120,13 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       // 'activeTab' gives us permission to do this upon user click.
       chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        files: ["content.js"]
+        files: [
+          "content/shared.js",
+          "content/crypto.js",
+          "content/storage.js",
+          "content/ui.js",
+          "content.js"
+        ]
       }, () => {
         // 2. Once injected, send the message to open the modal
         if (chrome.runtime.lastError) {
@@ -136,7 +142,13 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
     chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      files: ["content.js"]
+      files: [
+        "content/shared.js",
+        "content/crypto.js",
+        "content/storage.js",
+        "content/ui.js",
+        "content.js"
+      ]
     }, () => {
       if (chrome.runtime.lastError) {
         console.error("Script injection failed: " + chrome.runtime.lastError.message);
