@@ -124,7 +124,11 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
           "content/shared.js",
           "content/crypto.js",
           "content/storage.js",
-          "content/ui.js",
+          "content/ui/base.js",
+          "content/ui/rephrase.js",
+          "content/ui/summary.js",
+          "content/ui/settings.js",
+          "content/ui/unlock.js",
           "content.js"
         ]
       }, () => {
@@ -146,7 +150,11 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
         "content/shared.js",
         "content/crypto.js",
         "content/storage.js",
-        "content/ui.js",
+        "content/ui/base.js",
+        "content/ui/rephrase.js",
+        "content/ui/summary.js",
+        "content/ui/settings.js",
+        "content/ui/unlock.js",
         "content.js"
       ]
     }, () => {

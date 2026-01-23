@@ -23,7 +23,12 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["res/privacy-disclosure.html"],
+      "resources": [
+        "res/privacy-disclosure.html",
+        "content/ui/base.css",
+        "content/ui/summary.css",
+        "content/ui/settings.css"
+      ],
       "matches": ["<all_urls>"]
     }
   ]
