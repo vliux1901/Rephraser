@@ -73,6 +73,12 @@
         width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;
         box-sizing: border-box; font-size: 14px; height: 36px;
       }
+      input[type="checkbox"] {
+        width: auto;
+        height: auto;
+        padding: 0;
+        border: none;
+      }
       textarea {
         height: 70px;
         resize: vertical;
@@ -111,6 +117,21 @@
       .result { background: #f8f9fa; border: 1px solid #e9ecef; color: #333; }
       .error { color: #dc3545; font-size: 12px; }
       .notice { color: #0c5460; background: #d1ecf1; border: 1px solid #bee5eb; padding: 8px; border-radius: 4px; }
+      .privacy {
+        background: #fff7e6;
+        border: 1px solid #f2d9a6;
+        color: #5c4400;
+        padding: 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+      .privacy h3 { margin: 0 0 6px; font-size: 12px; }
+      .privacy ul { margin: 0; padding-left: 16px; }
+      .privacy li { margin-bottom: 4px; }
+      .privacy-consent { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+      .privacy-consent input { margin-top: 0; flex: 0 0 auto; }
+      .privacy-consent span { line-height: 1.2; }
       .meta { font-size: 12px; color: #666; }
       .meta-row { margin-bottom: 6px; }
       .meta a { color: #0b63ce; text-decoration: none; }
@@ -199,6 +220,20 @@
     });
   }
 
+  function getPrivacyAccepted() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(['privacyDisclosureAccepted'], (result) => {
+        resolve(Boolean(result.privacyDisclosureAccepted));
+      });
+    });
+  }
+
+  function setPrivacyAccepted() {
+    return new Promise((resolve) => {
+      chrome.storage.local.set({ privacyDisclosureAccepted: true }, () => resolve(true));
+    });
+  }
+
   function hasSessionPassphrase() {
     return new Promise((resolve) => {
       chrome.runtime.sendMessage({ action: 'get_session_passphrase' }, (response) => {
@@ -267,8 +302,13 @@
     if (request.action === "open_modal") {
       lastSelectedText = window.getSelection().toString();
       chrome.storage.local.get(['openaiKeyEncrypted'], async (localItems) => {
+        const privacyAccepted = await getPrivacyAccepted();
         const hasEncrypted = Boolean(localItems.openaiKeyEncrypted);
         const hasPassphrase = await hasSessionPassphrase();
+        if (!privacyAccepted) {
+          createAndShowSettingsModal({ mode: 'rephrase', payload: { selectedText: lastSelectedText } });
+          return;
+        }
         if (hasEncrypted && !hasPassphrase) {
           createAndShowUnlockModal({ mode: 'rephrase', payload: { selectedText: lastSelectedText } });
           return;
@@ -281,8 +321,13 @@
     } else if (request.action === "open_summary_modal") {
       const summaryPayload = buildSummaryPayload();
       chrome.storage.local.get(['openaiKeyEncrypted'], async (localItems) => {
+        const privacyAccepted = await getPrivacyAccepted();
         const hasEncrypted = Boolean(localItems.openaiKeyEncrypted);
         const hasPassphrase = await hasSessionPassphrase();
+        if (!privacyAccepted) {
+          createAndShowSettingsModal({ mode: 'summary', payload: summaryPayload });
+          return;
+        }
         if (!hasEncrypted) {
           createAndShowSettingsModal({ mode: 'summary', payload: summaryPayload });
           return;
@@ -540,6 +585,24 @@
     };
   }
 
+  function loadPrivacyDisclosure(target) {
+    if (!target) return;
+    getPrivacyAccepted().then((privacyAccepted) => {
+      if (privacyAccepted) {
+        target.style.display = 'none';
+        return;
+      }
+      fetch(chrome.runtime.getURL('res/privacy-disclosure.html'))
+        .then((response) => response.text())
+        .then((html) => {
+          target.innerHTML = html;
+        })
+        .catch(() => {
+          target.innerHTML = '<div class="error">Failed to load privacy disclosure.</div>';
+        });
+    });
+  }
+
   function createAndShowSettingsModal(options) {
     const mode = (options && options.mode) || 'rephrase';
     const payload = (options && options.payload) || {};
@@ -562,6 +625,7 @@
            <button id="btn-close-settings" class="close-icon">&times;</button>
         </div>
         <div class="notice">Enter your OpenAI API key to enable rephrasing. It will be protected by the password and won't be shared with anyone.</div>
+        <div id="privacy-disclosure"></div>
         <div class="section">
           <div class="input-group" id="settings-api-key-section">
             <label>OpenAI API Key</label>
@@ -588,6 +652,9 @@
     const apiKeySection = shadowRoot.getElementById('settings-api-key-section');
     const errorDiv = shadowRoot.getElementById('settings-error');
     const statusDiv = shadowRoot.getElementById('settings-status');
+    const privacyDisclosure = shadowRoot.getElementById('privacy-disclosure');
+
+    loadPrivacyDisclosure(privacyDisclosure);
 
     apiKeyInput.focus();
 
@@ -615,6 +682,15 @@
 
     const saveKey = async () => {
       clearMessages();
+      const privacyAccepted = await getPrivacyAccepted();
+      const privacyConsent = shadowRoot.getElementById('privacy-consent');
+      if (!privacyAccepted && (!privacyConsent || !privacyConsent.checked)) {
+        showError("Please accept the privacy disclosure to continue.");
+        return;
+      }
+      if (!privacyAccepted && privacyConsent && privacyConsent.checked) {
+        await setPrivacyAccepted();
+      }
       const apiKey = apiKeyInput.value.trim();
       const password = passwordInput.value.trim();
       const existingEncrypted = await getLocalEncrypted();

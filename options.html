@@ -28,10 +28,36 @@
       width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;
       box-sizing: border-box; font-size: 14px; height: 36px;
     }
+    input[type="checkbox"] {
+      width: auto;
+      height: auto;
+      padding: 0;
+      border: none;
+    }
     .notice {
       color: #0c5460; background: #d1ecf1; border: 1px solid #bee5eb;
       padding: 8px; border-radius: 4px;
     }
+    .privacy {
+      background: #fff7e6;
+      border: 1px solid #f2d9a6;
+      color: #5c4400;
+      padding: 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .privacy h3 { margin: 0 0 6px; font-size: 12px; }
+    .privacy ul { margin: 0; padding-left: 16px; }
+    .privacy li { margin-bottom: 4px; }
+    .privacy-consent {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .privacy-consent input { margin-top: 0; flex: 0 0 auto; }
+    .privacy-consent span { line-height: 1.2; }
     h3 { margin: 10px 0 6px; font-size: 13px; }
     .section { margin-top: 6px; padding-top: 6px; border-top: 1px solid #e5e5e5; }
     .settings-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 5px; }
@@ -57,6 +83,7 @@
       <h2>Settings</h2>
     </div>
     <div class="notice">Enter your OpenAI API key to enable rephrasing. It will be protected by the password and won't be shared with anyone.</div>
+    <div id="privacy-disclosure"></div>
     <div class="section">
       <h3 id="settings-title">Setup</h3>
       <div class="input-group" id="settings-api-key-section">

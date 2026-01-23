@@ -75,6 +75,20 @@ function getLocalEncrypted() {
   });
 }
 
+function getPrivacyAccepted() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['privacyDisclosureAccepted'], (result) => {
+      resolve(Boolean(result.privacyDisclosureAccepted));
+    });
+  });
+}
+
+function setPrivacyAccepted() {
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ privacyDisclosureAccepted: true }, () => resolve(true));
+  });
+}
+
 function showStatus(message) {
   const status = document.getElementById('settings-status');
   if (!status) return;
@@ -111,10 +125,20 @@ document.getElementById('btn-save-key').addEventListener('click', async () => {
   clearError();
   const apiKeyInput = document.getElementById('api-key-input');
   const passwordInput = document.getElementById('password-input');
+  const privacyConsent = document.getElementById('privacy-consent');
   const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
   const password = passwordInput ? passwordInput.value.trim() : '';
+  const privacyAccepted = await getPrivacyAccepted();
 
   const encrypted = await getLocalEncrypted();
+
+  if (!privacyAccepted && (!privacyConsent || !privacyConsent.checked)) {
+    showError('Please accept the privacy disclosure to continue.');
+    return;
+  }
+  if (!privacyAccepted && privacyConsent && privacyConsent.checked) {
+    await setPrivacyAccepted();
+  }
 
   if (!encrypted || apiKey) {
     if (!apiKey) {
@@ -168,6 +192,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   const sectionTitle = document.getElementById('settings-title');
   const apiKeyInput = document.getElementById('api-key-input');
   const passwordInput = document.getElementById('password-input');
+  const privacyDisclosure = document.getElementById('privacy-disclosure');
+  const privacyAccepted = await getPrivacyAccepted();
+  if (privacyDisclosure) {
+    if (privacyAccepted) {
+      privacyDisclosure.style.display = 'none';
+    } else {
+      fetch(chrome.runtime.getURL('res/privacy-disclosure.html'))
+        .then((response) => response.text())
+        .then((html) => {
+          privacyDisclosure.innerHTML = html;
+        })
+        .catch(() => {
+          showError('Failed to load privacy disclosure.');
+        });
+    }
+  }
   const encrypted = await getLocalEncrypted();
   if (encrypted) {
     if (sectionTitle) sectionTitle.textContent = 'Update';
