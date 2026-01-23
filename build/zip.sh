@@ -10,6 +10,10 @@ EXCLUDES=(
   "build/**"
   ".git/"
   ".git/**"
+  ".eslintrc*"
+  ".eslintcache"
+  "package.json"
+  "package-lock.json"
 )
 
 while IFS= read -r line; do
