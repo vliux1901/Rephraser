@@ -6,8 +6,6 @@ OUTPUT_NAME="ai_rephrase.zip"
 OUTPUT_PATH="${PROJECT_ROOT}/${OUTPUT_NAME}"
 
 EXCLUDES=(
-  "res/"
-  "res/**"
   "build/"
   "build/**"
   ".git/"
