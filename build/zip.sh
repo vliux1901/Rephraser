@@ -12,6 +12,11 @@ EXCLUDES=(
   ".git/**"
   ".eslintrc*"
   ".eslintcache"
+  "__tests__/"
+  "__tests__/**"
+  "jest.config.js"
+  "node_modules/"
+  "node_modules/**"
   "package.json"
   "package-lock.json"
 )
