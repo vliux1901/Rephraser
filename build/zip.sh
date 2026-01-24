@@ -10,6 +10,7 @@ EXCLUDES=(
   "build/**"
   ".git/"
   ".git/**"
+  ".gitignore"
   ".eslintrc*"
   ".eslintcache"
   "__tests__/"
