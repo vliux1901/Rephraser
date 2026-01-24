@@ -17,9 +17,9 @@
     "open_in_tab": false
   },
   "icons": {
-    "16": "rephraser_16.png",
-    "48": "rephraser_48.png",
-    "128": "rephraser_128.png"
+    "16": "res/rephraser_16.png",
+    "48": "res/rephraser_48.png",
+    "128": "res/rephraser_128.png"
   },
   "web_accessible_resources": [
     {
