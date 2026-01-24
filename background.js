@@ -1,5 +1,9 @@
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
+const isTestEnv =
+  typeof process !== 'undefined' &&
+  process.env &&
+  process.env.NODE_ENV === 'test';
 
 function base64ToBuffer(base64) {
   const binary = atob(base64);
@@ -95,15 +99,16 @@ function registerContextMenus() {
   });
 }
 
-chrome.runtime.onInstalled.addListener(() => {
+if (!isTestEnv && typeof chrome !== "undefined" && chrome.runtime) {
+  chrome.runtime.onInstalled.addListener(() => {
+    registerContextMenus();
+  });
+
+  // Ensure menus exist on service worker activation (e.g. extension reload).
+  console.log("Background service worker loaded.");
   registerContextMenus();
-});
 
-// Ensure menus exist on service worker activation (e.g. extension reload).
-console.log("Background service worker loaded.");
-registerContextMenus();
-
-chrome.contextMenus.onClicked.addListener((info, tab) => {
+  chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === "rephrase-text") {
     // Security check: cannot inject into chrome:// settings pages
     if (tab.url.startsWith("chrome://") || tab.url.startsWith("edge://")) return;
@@ -165,9 +170,9 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       }
     });
   }
-});
+  });
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "call_openai") {
     (async () => {
       const { apiKey, error } = await getApiKeyForRequest(request.passphrase);
@@ -256,4 +261,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
     return true;
   }
-});
+  });
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    base64ToBuffer,
+    deriveKey,
+    decryptApiKey
+  };
+}
